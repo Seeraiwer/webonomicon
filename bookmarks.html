@@ -95,7 +95,7 @@
       }
       .title h1 {
         margin: 0;
-        font-size: 28px;
+        font-size: 24px;
       }
       .title small {
         color: var(--muted);
@@ -103,7 +103,7 @@
       .searchbar {
         grid-area: search;
         display: flex;
-        gap: 8px;
+        gap: 6px;
         align-items: center;
         background: var(--card);
         border-radius: 999px;
@@ -122,17 +122,17 @@
       .searchbar select,
       .searchbar button {
         border: 0;
-        border-radius: 8px; /* moins rond */
-        padding: 4px 10px; /* plus petit */
+        border-radius: 8px; 
+        padding: 4px 10px; 
         background: var(--bg-soft);
         color: inherit;
         cursor: pointer;
-        font-size: 13px; /* texte plus petit */
+        font-size: 10px; 
       }
       .searchbar button {
         background: linear-gradient(180deg, var(--accent), var(--accent-2));
         color: #08131f;
-        font-weight: 600; /* un peu moins épais que 700 */
+        font-weight: 600; 
       }
 
       .toolbar {
@@ -144,11 +144,12 @@
       .pill {
         background: var(--card);
         border-radius: 999px;
-        padding: 8px 12px;
+        padding: 8px 10px;
         display: flex;
         gap: 8px;
         align-items: center;
         box-shadow: var(--shadow);
+        font-size: 12px;
       }
       .pill label {
         color: var(--muted);
@@ -167,7 +168,7 @@
       }
       .group-title h2 {
         margin: 0;
-        font-size: 18px;
+        font-size: 16px;
       }
       .group-actions {
         display: flex;
@@ -396,7 +397,6 @@
       <header>
         <div class="title">
           <h1 id="page-title">💀 Webonomicon</h1>
-          <small>Fichier unique, modifiable, sauvegardable</small>
         </div>
         <form class="searchbar" id="search-form">
           <input
@@ -406,8 +406,8 @@
             autocomplete="off"
           />
           <select id="engine">
-            <option value="google">Google</option>
             <option value="duckduckgo">DuckDuckGo</option>
+            <option value="google">Google</option>
             <option value="qwant">Qwant</option>
             <option value="bing">Bing</option>
             <option value="brave">Brave</option>
