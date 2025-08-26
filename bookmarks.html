@@ -122,17 +122,19 @@
       .searchbar select,
       .searchbar button {
         border: 0;
-        border-radius: 999px;
-        padding: 8px 12px;
+        border-radius: 8px; /* moins rond */
+        padding: 4px 10px; /* plus petit */
         background: var(--bg-soft);
         color: inherit;
         cursor: pointer;
+        font-size: 13px; /* texte plus petit */
       }
       .searchbar button {
         background: linear-gradient(180deg, var(--accent), var(--accent-2));
         color: #08131f;
-        font-weight: 700;
+        font-weight: 600; /* un peu moins épais que 700 */
       }
+
       .toolbar {
         grid-area: toolbar;
         display: flex;
@@ -161,6 +163,7 @@
         align-items: center;
         justify-content: space-between;
         gap: 12px;
+        flex-wrap: wrap;
       }
       .group-title h2 {
         margin: 0;
@@ -170,7 +173,18 @@
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
+        justify-content: flex-end;
       }
+      /* Masquer les actions de groupe quand on n'est PAS en édition */
+      .group-actions {
+        display: none;
+      }
+
+      /* Les afficher uniquement en mode édition (body.editing déjà géré par ton toggle) */
+      .editing .group-actions {
+        display: flex;
+      }
+
       .group-actions .btn {
         border: 0;
         border-radius: 10px;
@@ -179,6 +193,10 @@
         color: inherit;
         cursor: pointer;
         box-shadow: var(--shadow);
+        white-space: nowrap;
+      }
+      .group-header + .tiles {
+        margin-top: 6px;
       }
       .tiles {
         display: grid;
@@ -362,6 +380,15 @@
         background: rgba(255, 92, 92, 0.12);
         color: #ff8b8b;
       }
+      /* Masquer les éléments marqués edit-only hors édition */
+      .edit-only {
+        display: none;
+      }
+
+      /* Les afficher uniquement quand body a la classe .editing */
+      .editing .edit-only {
+        display: flex;
+      }
     </style>
   </head>
   <body>
@@ -401,7 +428,7 @@
             <label for="edit-toggle">Mode édition</label>
             <input type="checkbox" id="edit-toggle" />
           </div>
-          <div class="pill">
+          <div class="pill edit-only">
             <button id="add-group">+ Groupe</button>
             <button id="export-json">Exporter JSON</button>
             <button id="import-json">Importer JSON</button>
@@ -433,9 +460,7 @@
         "groups": [
           {
             "name": "Quotidien",
-            "links": [
-              { "label": "ChatGPT", "url": "https://chat.openai.com/" }
-            ]
+            "links": [{ "label": "ChatGPT", "url": "https://chat.openai.com/" }]
           },
           {
             "name": "Actualité",
