@@ -1205,72 +1205,80 @@
       });
       function parseBookmarksHTML(html) {
         const doc = new DOMParser().parseFromString(html, "text/html");
-        const body = doc.body;
-        if (!body) throw new Error("Fichier vide.");
-        const groupsMap = new Map(); // name => links
-        function add(groupName, label, url) {
+        const rootDL = doc.querySelector("dl, DL");
+        if (!rootDL) throw new Error("Format Netscape/Bookmarks non détecté.");
+
+        // Retire les espaces/retours parasites dans un nom de dossier
+        const clean = (s) => (s || "").replace(/\s+/g, " ").trim();
+
+        // Reconstitue le chemin "A / B / C" d'un lien <a> donné
+        function folderPathFor(anchor) {
+          const path = [];
+          let dl = anchor.closest("dl, DL");
+          while (dl) {
+            // Le dossier "propriétaire" d'un <DL> est le <DT> immédiatement précédent
+            // qui contient un <H3> (le nom du dossier)
+            let prev = dl.previousElementSibling;
+            while (prev && prev.tagName !== "DT")
+              prev = prev.previousElementSibling;
+            if (prev) {
+              const h = prev.querySelector(
+                ":scope > h3, :scope > H3, :scope > h1, :scope > H1"
+              );
+              if (h) path.unshift(clean(h.textContent));
+            }
+            // Remonte d'un niveau: le parent d'un <DL> est (en général) un autre <DL>
+            dl = dl.parentElement ? dl.parentElement.closest("dl, DL") : null;
+          }
+          return path;
+        }
+
+        // Rassemble les liens par groupe (chemin "A / B / C")
+        const groupsMap = new Map(); // name -> [{label,url}]
+        const add = (pathArr, label, url) => {
           if (!url) return;
-          const name = (groupName || "Importés").trim() || "Importés";
+          const name = pathArr.length ? pathArr.join(" / ") : "Racine";
           if (!groupsMap.has(name)) groupsMap.set(name, []);
           const arr = groupsMap.get(name);
-          if (!arr.some((l) => l.url === url))
-            arr.push({ label: label || url, url });
-        }
-        function collectFolder(dl, name) {
-          // liens directs de ce dossier
-          const dts = Array.from(dl.children).filter(
-            (el) => el.tagName === "DT"
-          );
-          for (const dt of dts) {
-            const first = dt.firstElementChild;
-            if (!first) continue;
-            if (first.tagName === "A") {
-              const aEls = [...dt.querySelectorAll("a")].filter(
-                (a) => a.closest("DT") === dt
-              );
-              for (const a of aEls) {
-                const href =
-                  a.getAttribute("HREF") || a.getAttribute("href") || a.href;
-                add(name, a.textContent.trim(), href);
-              }
-            } else if (first.tagName === "H3") {
-              const subName = first.textContent.trim();
-              let sib = dt.nextElementSibling;
-              while (sib && sib.tagName !== "DL") sib = sib.nextElementSibling;
-              if (sib && sib.tagName === "DL") collectFolder(sib, subName);
-            }
+          const nu = normalizeUrl(url);
+          if (!arr.some((l) => normalizeUrl(l.url) === nu)) {
+            arr.push({ label: clean(label) || url, url });
           }
-        }
-        // parcourir tous les dossiers racine
-        const h3s = Array.from(body.querySelectorAll("h3"));
-        for (const h3 of h3s) {
-          const name = h3.textContent.trim();
-          let dl = h3.parentElement && h3.parentElement.nextElementSibling;
-          while (dl && dl.tagName !== "DL") dl = dl.nextElementSibling;
-          if (dl && dl.tagName === "DL") collectFolder(dl, name);
-        }
-        // fallback: liens isolés sans h3/dl
-        if (groupsMap.size === 0) {
-          const allA = Array.from(doc.querySelectorAll("a[href]"));
-          for (const a of allA) {
-            const href =
-              a.getAttribute("HREF") || a.getAttribute("href") || a.href;
-            add("Importés", a.textContent.trim(), href);
-          }
-        }
-        return Array.from(groupsMap.entries())
-          .map(([name, links]) => ({ name, links }))
-          .sort((a, b) => a.name.localeCompare(b.name));
+        };
+
+        // 1) Tous les liens sous le DL racine (peu importe la profondeur)
+        const anchors = rootDL.querySelectorAll("a[href], A[HREF]");
+        anchors.forEach((a) => {
+          const href =
+            a.getAttribute("href") || a.getAttribute("HREF") || a.href;
+          const label = a.textContent || href;
+          const path = folderPathFor(a);
+          add(path, label, href);
+        });
+
+        // 2) Conversion en tableau de groupes, dans l'ordre d'apparition
+        const groups = Array.from(groupsMap, ([name, links]) => ({
+          name,
+          links,
+        }));
+        return groups;
       }
+
       function mergeImportedGroups(imported) {
         for (const g of imported) {
           const i = data.groups.findIndex((x) => x.name === g.name);
           if (i === -1) {
             data.groups.push(g);
           } else {
-            const urls = new Set(data.groups[i].links.map((l) => l.url));
+            const seen = new Set(
+              data.groups[i].links.map((l) => normalizeUrl(l.url))
+            );
             for (const l of g.links) {
-              if (!urls.has(l.url)) data.groups[i].links.push(l);
+              const nu = normalizeUrl(l.url);
+              if (!seen.has(nu)) {
+                data.groups[i].links.push(l);
+                seen.add(nu);
+              }
             }
           }
         }
