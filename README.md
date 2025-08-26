@@ -3,8 +3,6 @@
 **Webonomicon** est une **startpage autonome** permettant d’organiser vos favoris dans un simple fichier **HTML unique**.  
 Pas de serveur, pas de dépendance externe : tout est embarqué (favoris, moteur de recherche, thèmes, drag & drop…).
 
-![screenshot](./screenshot.png) <!-- Remplace ou supprime si tu n’as pas encore de capture -->
-
 ---
 
 ## ✨ Fonctionnalités
