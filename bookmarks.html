@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="auto">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>💀 Webonomicon</title>
+    <meta
+      name="description"
+      content="Startpage autonome pour organiser vos favoris (JSON intégré, import HTML, drag & drop)."
+    />
+    <!-- Favicon skull as inline SVG to avoid 404 -->
+    <link
+      rel="icon"
+      href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><text y="50" font-size="48">💀</text></svg>'
+    />
+    <style>
+      :root {
+        --bg: #0b0c10;
+        --bg-soft: #101218;
+        --card: #151822;
+        --fg: #e9eef4;
+        --muted: #b9c0cc;
+        --accent: #6aa6ff;
+        --accent-2: #8bd3ff;
+        --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+        --tile-radius: 16px;
+        --gap: 14px;
+        --tile-min: 180px;
+        --tile-max: 1fr;
+        --tile-padding: 14px;
+        --tile-font: 15px;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f6f7fb;
+          --bg-soft: #f0f2f7;
+          --card: #ffffff;
+          --fg: #0c1220;
+          --muted: #5a6b83;
+          --shadow: 0 10px 24px rgba(10, 10, 30, 0.08);
+        }
+      }
+      [data-theme="light"] {
+        --bg: #f6f7fb;
+        --bg-soft: #f0f2f7;
+        --card: #ffffff;
+        --fg: #0c1220;
+        --muted: #5a6b83;
+        --shadow: 0 10px 24px rgba(10, 10, 30, 0.08);
+      }
+      [data-theme="dark"] {
+        --bg: #0b0c10;
+        --bg-soft: #101218;
+        --card: #151822;
+        --fg: #e9eef4;
+        --muted: #b9c0cc;
+        --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: linear-gradient(180deg, var(--bg-soft), var(--bg));
+        color: var(--fg);
+        font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu,
+          Cantarell, Noto Sans, Arial;
+      }
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+      header {
+        display: grid;
+        gap: 12px;
+        align-items: center;
+        grid-template-columns: 1fr;
+        grid-template-areas: "title" "search" "toolbar";
+      }
+      @media (min-width: 860px) {
+        header {
+          grid-template-columns: 1fr 1.2fr;
+          grid-template-areas: "title search" "toolbar toolbar";
+        }
+      }
+      .title {
+        grid-area: title;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .title h1 {
+        margin: 0;
+        font-size: 28px;
+      }
+      .title small {
+        color: var(--muted);
+      }
+      .searchbar {
+        grid-area: search;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        background: var(--card);
+        border-radius: 999px;
+        padding: 8px 10px;
+        box-shadow: var(--shadow);
+      }
+      .searchbar input {
+        flex: 1;
+        font: inherit;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: inherit;
+        padding: 8px;
+      }
+      .searchbar select,
+      .searchbar button {
+        border: 0;
+        border-radius: 999px;
+        padding: 8px 12px;
+        background: var(--bg-soft);
+        color: inherit;
+        cursor: pointer;
+      }
+      .searchbar button {
+        background: linear-gradient(180deg, var(--accent), var(--accent-2));
+        color: #08131f;
+        font-weight: 700;
+      }
+      .toolbar {
+        grid-area: toolbar;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .pill {
+        background: var(--card);
+        border-radius: 999px;
+        padding: 8px 12px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        box-shadow: var(--shadow);
+      }
+      .pill label {
+        color: var(--muted);
+      }
+      main {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .group-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .group-title h2 {
+        margin: 0;
+        font-size: 18px;
+      }
+      .group-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .group-actions .btn {
+        border: 0;
+        border-radius: 10px;
+        padding: 6px 10px;
+        background: var(--card);
+        color: inherit;
+        cursor: pointer;
+        box-shadow: var(--shadow);
+      }
+      .tiles {
+        display: grid;
+        grid-template-columns: repeat(
+          auto-fill,
+          minmax(var(--tile-min), var(--tile-max))
+        );
+        gap: var(--gap);
+      }
+      .tile {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        grid-template-areas: "icon title" "icon url";
+        gap: 8px;
+        align-items: center;
+        padding: var(--tile-padding);
+        background: var(--card);
+        border-radius: var(--tile-radius);
+        box-shadow: var(--shadow);
+        position: relative;
+        text-decoration: none;
+        color: inherit;
+        transition: transform 0.08s ease;
+        overflow: hidden;
+      }
+      .tile:hover {
+        transform: translateY(-2px);
+      }
+      .tile .icon {
+        grid-area: icon;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: var(--bg-soft);
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        font-size: 14px;
+        overflow: hidden;
+      }
+      .tile img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .tile .label {
+        grid-area: title;
+        font-size: var(--tile-font);
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tile .url {
+        grid-area: url;
+        color: var(--muted);
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tile[draggable="true"] {
+        cursor: grab;
+      }
+      .tile.dragging {
+        opacity: 0.55;
+      }
+      .tiles.drop-active {
+        outline: 2px dashed var(--accent);
+        outline-offset: 6px;
+        border-radius: 12px;
+      }
+      /* Drag groupes */
+      .group.dragging {
+        opacity: 0.6;
+      }
+      .group.drop-before {
+        outline: 2px solid var(--accent);
+        border-radius: 12px;
+        position: relative;
+      }
+      .group.drop-before::before {
+        content: "";
+        position: absolute;
+        left: -8px;
+        right: -8px;
+        top: -6px;
+        height: 4px;
+        background: var(--accent);
+        border-radius: 2px;
+      }
+      .group.drop-after {
+        outline: 2px solid var(--accent);
+        border-radius: 12px;
+        position: relative;
+      }
+      .group.drop-after::after {
+        content: "";
+        position: absolute;
+        left: -8px;
+        right: -8px;
+        bottom: -6px;
+        height: 4px;
+        background: var(--accent);
+        border-radius: 2px;
+      }
+      .tile .controls {
+        position: absolute;
+        bottom: 6px;
+        right: 6px;
+        display: flex;
+        gap: 6px;
+        opacity: 0;
+        transition: opacity 0.15s;
+        z-index: 10;
+        background: var(--bg-soft);
+        padding: 2px 4px;
+        border-radius: 8px;
+      }
+      .tile.editing .controls,
+      .editing .tile:hover .controls {
+        opacity: 1;
+      }
+      .chip {
+        border: 0;
+        border-radius: 6px;
+        padding: 4px;
+        font-size: 0;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .chip svg {
+        width: 16px;
+        height: 16px;
+        pointer-events: none;
+      }
+      .chip.danger {
+        background: rgba(255, 92, 92, 0.15);
+        color: #ff8b8b;
+      }
+      footer {
+        color: var(--muted);
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .empty {
+        color: var(--muted);
+        font-style: italic;
+      }
+      code.k {
+        background: var(--card);
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+      /* Indication groupe vide */
+      .tiles.empty::before {
+        content: "Glisser un lien ici";
+        color: var(--muted);
+        font-style: italic;
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 12px;
+      }
+
+      /* Marquage doublons */
+      .tile.dup {
+        outline: 2px solid #ff4d4f;
+        box-shadow: inset 0 0 0 2px rgba(255, 77, 79, 0.25), var(--shadow);
+      }
+      .tile.dup .label {
+        color: #ff8b8b;
+      }
+      .tile.dup .chip {
+        background: rgba(255, 92, 92, 0.12);
+        color: #ff8b8b;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="title">
+          <h1 id="page-title">💀 Webonomicon</h1>
+          <small>Fichier unique, modifiable, sauvegardable</small>
+        </div>
+        <form class="searchbar" id="search-form">
+          <input
+            id="search-input"
+            type="search"
+            placeholder="Rechercher un favori… (Entrée = recherche web)"
+            autocomplete="off"
+          />
+          <select id="engine">
+            <option value="google">Google</option>
+            <option value="duckduckgo">DuckDuckGo</option>
+            <option value="qwant">Qwant</option>
+            <option value="bing">Bing</option>
+            <option value="brave">Brave</option>
+            <option value="startpage">Startpage</option>
+          </select>
+          <button type="submit">Rechercher</button>
+        </form>
+        <div class="toolbar">
+          <div class="pill">
+            <label for="theme-select">Thème</label>
+            <select id="theme-select">
+              <option value="auto">Auto</option>
+              <option value="light">Clair</option>
+              <option value="dark">Sombre</option>
+            </select>
+          </div>
+          <div class="pill">
+            <label for="edit-toggle">Mode édition</label>
+            <input type="checkbox" id="edit-toggle" />
+          </div>
+          <div class="pill">
+            <button id="add-group">+ Groupe</button>
+            <button id="export-json">Exporter JSON</button>
+            <button id="import-json">Importer JSON</button>
+            <button id="import-html">Importer Bookmarks HTML</button>
+            <button id="download-html">Exporter HTML</button>
+            <button id="dedupe">Vérifier doublons</button>
+          </div>
+        </div>
+      </header>
+      <main id="groups"></main>
+      <footer>
+        <span
+          >Astuce : tapez <code class="k">!</code> + alias pour changer de
+          moteur (ex : <code class="k">!ddg</code>,
+          <code class="k">!q</code>).</span
+        >
+        <span
+          >Raccourcis : <code class="k">/</code> (focus recherche),
+          <code class="k">e</code> (éditer).</span
+        >
+      </footer>
+    </div>
+
+    <!-- Données embarquées -->
+    <script id="bookmarks-data" type="application/json">
+      {
+        "title": "💀 Webonomicon",
+        "engine": "google",
+        "groups": [
+          {
+            "name": "Quotidien",
+            "links": [
+              { "label": "Gmail", "url": "https://mail.google.com/" },
+              { "label": "Agenda", "url": "https://calendar.google.com/" },
+              { "label": "YouTube", "url": "https://www.youtube.com/" },
+              { "label": "ChatGPT", "url": "https://chat.openai.com/" }
+            ]
+          },
+          {
+            "name": "Actualité",
+            "links": [
+              { "label": "Le Monde", "url": "https://www.lemonde.fr/" },
+              { "label": "Le Figaro", "url": "https://www.lefigaro.fr/" },
+              { "label": "Franceinfo", "url": "https://www.francetvinfo.fr/" }
+            ]
+          },
+          {
+            "name": "Dev",
+            "links": [
+              { "label": "MDN", "url": "https://developer.mozilla.org/" },
+              { "label": "GitHub", "url": "https://github.com/" },
+              { "label": "Stack Overflow", "url": "https://stackoverflow.com/" }
+            ]
+          }
+        ]
+      }
+    </script>
+
+    <dialog class="modal" id="link-modal">
+      <header>
+        <h3 id="link-modal-title">Ajouter un lien</h3>
+        <button class="btn" id="link-modal-close">✕</button>
+      </header>
+      <div class="content">
+        <div class="field">
+          <label for="lm-label">Nom</label
+          ><input id="lm-label" required placeholder="Ex : Notion" />
+        </div>
+        <div class="field">
+          <label for="lm-url">URL</label
+          ><input id="lm-url" required placeholder="https://…" />
+        </div>
+        <div class="row">
+          <div class="field" style="min-width: 160px">
+            <label for="lm-group">Groupe</label>
+            <select id="lm-group"></select>
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="link-modal-cancel">Annuler</button>
+        <button class="btn primary" id="link-modal-save">Enregistrer</button>
+      </div>
+    </dialog>
+
+    <dialog class="modal" id="group-modal">
+      <header>
+        <h3 id="group-modal-title">Renommer le groupe</h3>
+        <button class="btn" id="group-modal-close">✕</button>
+      </header>
+      <div class="content">
+        <div class="field">
+          <label for="gm-name">Nom du groupe</label
+          ><input id="gm-name" required placeholder="Ex : Outils" />
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="group-modal-cancel">Annuler</button>
+        <button class="btn primary" id="group-modal-save">Enregistrer</button>
+      </div>
+    </dialog>
+
+    <input type="file" id="file-json-input" accept="application/json" hidden />
+    <input
+      type="file"
+      id="file-html-input"
+      accept=".html,.htm,text/html"
+      hidden
+    />
+
+    <script>
+      // --- Utils
+      const $ = (sel, ctx = document) => ctx.querySelector(sel);
+      const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
+      const ENGINES = {
+        google: (q) =>
+          `https://www.google.com/search?q=${encodeURIComponent(q)}`,
+        duckduckgo: (q) => `https://duckduckgo.com/?q=${encodeURIComponent(q)}`,
+        qwant: (q) => `https://www.qwant.com/?q=${encodeURIComponent(q)}`,
+        bing: (q) => `https://www.bing.com/search?q=${encodeURIComponent(q)}`,
+        brave: (q) =>
+          `https://search.brave.com/search?q=${encodeURIComponent(q)}`,
+        startpage: (q) =>
+          `https://www.startpage.com/do/search?q=${encodeURIComponent(q)}`,
+      };
+      const ENGINE_ALIASES = {
+        g: "google",
+        ddg: "duckduckgo",
+        q: "qwant",
+        b: "bing",
+        br: "brave",
+        sp: "startpage",
+      };
+      const getDomain = (u) => {
+        try {
+          return new URL(u).hostname;
+        } catch {
+          return "";
+        }
+      };
+      const faviconURL = (u) => {
+        const d = getDomain(u);
+        return d
+          ? `https://www.google.com/s2/favicons?sz=64&domain=${encodeURIComponent(
+              d
+            )}`
+          : "";
+      };
+      const safeText = (s) => (s ?? "").toString().trim();
+
+      // Normalise une URL pour la comparaison de doublons
+      function normalizeUrl(u) {
+        try {
+          const url = new URL(u);
+          // hôte sans "www.", en minuscule
+          const host = url.hostname.replace(/^www\./i, "").toLowerCase();
+          // chemin sans slash final (sauf racine)
+          let path = url.pathname.replace(/\/+$/, "");
+          if (path === "") path = "/";
+          // on retire les paramètres de tracking les plus courants
+          const params = new URLSearchParams(url.search);
+          [
+            "utm_source",
+            "utm_medium",
+            "utm_campaign",
+            "utm_term",
+            "utm_content",
+            "gclid",
+            "fbclid",
+            "igshid",
+            "mc_cid",
+            "mc_eid",
+          ].forEach((k) => params.delete(k));
+          const search = params.toString();
+          // on ignore le hash (#…)
+          return `${host}${path}${search ? `?${search}` : ""}`;
+        } catch {
+          // fallback si l’URL est relative / sans protocole
+          return (u || "")
+            .trim()
+            .toLowerCase()
+            .replace(/^https?:\/\//, "")
+            .replace(/^www\./, "")
+            .replace(/\/+$/, "");
+        }
+      }
+
+      // --- State
+      let data = loadData();
+      let editing = false;
+
+      function loadData() {
+        const local = localStorage.getItem("startpage:data");
+        if (local) {
+          try {
+            return JSON.parse(local);
+          } catch {
+            /* ignore */
+          }
+        }
+        try {
+          return JSON.parse(
+            document.getElementById("bookmarks-data").textContent
+          );
+        } catch {
+          return { title: "💀 Webonomicon", engine: "google", groups: [] };
+        }
+      }
+      function saveData() {
+        localStorage.setItem("startpage:data", JSON.stringify(data));
+        const script = document.getElementById("bookmarks-data");
+        script.textContent = JSON.stringify(data, null, 2);
+      }
+
+      // --- Render
+      function render() {
+        document.title = `${data.title} — Webonomicon`;
+        $("#page-title").textContent = data.title;
+        $("#engine").value = data.engine in ENGINES ? data.engine : "google";
+        const groupsEl = $("#groups");
+        groupsEl.innerHTML = "";
+        if (!data.groups?.length) {
+          const p = document.createElement("p");
+          p.className = "empty";
+          p.textContent =
+            "Aucun groupe. Cliquez sur « + Groupe » pour commencer.";
+          groupsEl.appendChild(p);
+          return;
+        }
+        data.groups.forEach((g, gi) => {
+          const group = document.createElement("section");
+          group.className = "group";
+          group.dataset.gi = String(gi);
+          setGroupDragHandlers(group, gi);
+          const head = document.createElement("div");
+          head.className = "group-header";
+          head.draggable = true;
+          head.addEventListener("dragstart", (e) => onGroupDragStart(e, gi));
+          head.addEventListener("dragend", onGroupDragEnd);
+          const title = document.createElement("div");
+          title.className = "group-title";
+          const h2 = document.createElement("h2");
+          h2.textContent = g.name || `Groupe ${gi + 1}`;
+          title.appendChild(h2);
+          head.appendChild(title);
+          const actions = document.createElement("div");
+          actions.className = "group-actions";
+          const btnAdd = mkBtn("Ajouter un lien", () =>
+            openLinkModal({ mode: "add", groupIndex: gi })
+          );
+          const btnRen = mkBtn("Renommer", () =>
+            openGroupModal({ groupIndex: gi })
+          );
+          const btnUp = mkBtn("↑", () => moveGroup(gi, -1));
+          const btnDn = mkBtn("↓", () => moveGroup(gi, 1));
+          const btnDel = mkBtn("Supprimer", () => delGroup(gi), "danger");
+          [btnAdd, btnRen, btnUp, btnDn, btnDel].forEach((b) =>
+            actions.appendChild(b)
+          );
+          head.appendChild(actions);
+          group.appendChild(head);
+
+          const tiles = document.createElement("div");
+          tiles.className = "tiles";
+          if (!(g.links && g.links.length)) tiles.classList.add("empty"); // groupe vide
+          tiles.dataset.gi = String(gi);
+          setDropHandlers(tiles, gi);
+          (g.links || []).forEach((link, li) => {
+            tiles.appendChild(renderTile(link, gi, li));
+          });
+
+          group.appendChild(tiles);
+          groupsEl.appendChild(group);
+        });
+        document.body.classList.toggle("editing", editing);
+        $$(".tile").forEach((t) => t.classList.toggle("editing", editing));
+        applyDuplicateHighlight();
+      }
+
+      function mkBtn(label, onClick, tone) {
+        const b = document.createElement("button");
+        b.className = "btn" + (tone ? ` ${tone}` : "");
+        b.textContent = label;
+        b.addEventListener("click", (e) => {
+          e.preventDefault();
+          onClick(e);
+        });
+        return b;
+      }
+
+      function iconSVG(name) {
+        const icons = {
+          edit: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm18-11.49a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75L21 5.76z"/></svg>',
+          up: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 14l5-5 5 5H7z"/></svg>',
+          down: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 10l5 5 5-5H7z"/></svg>',
+          move: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M13 5h-2v4H7v2h4v4h2v-4h4V9h-4V5z"/></svg>',
+          del: '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M6 7h12v2H6zm2 3h8l-1 9H9l-1-9zm3-6h2l1 2h-4l1-2z"/></svg>',
+        };
+        const span = document.createElement("span");
+        span.innerHTML = icons[name] || "";
+        return span.firstChild;
+      }
+      function chipIcon(name, onClick, tone, title) {
+        const b = document.createElement("button");
+        b.className = "chip" + (tone ? ` ${tone}` : "");
+        b.appendChild(iconSVG(name));
+        if (title) b.title = title;
+        b.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClick(e);
+        });
+        return b;
+      }
+
+      function renderTile(link, gi, li) {
+        const a = document.createElement("a");
+        a.className = "tile";
+        a.href = link.url;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.draggable = true;
+        a.dataset.gi = String(gi);
+        a.dataset.li = String(li);
+        a.addEventListener("dragstart", onTileDragStart);
+        a.addEventListener("dragend", onTileDragEnd);
+        const icon = document.createElement("div");
+        icon.className = "icon";
+        const img = document.createElement("img");
+        img.loading = "lazy";
+        const fav = faviconURL(link.url);
+        if (fav) {
+          img.src = fav;
+          img.alt = "";
+          icon.appendChild(img);
+        } else {
+          icon.textContent = (link.label || "?").slice(0, 2).toUpperCase();
+        }
+        const label = document.createElement("div");
+        label.className = "label";
+        label.title = link.label || "";
+        label.textContent = link.label || link.url;
+        const url = document.createElement("div");
+        url.className = "url";
+        url.textContent = link.url;
+        const ctr = document.createElement("div");
+        ctr.className = "controls";
+        const editB = chipIcon(
+          "edit",
+          () => openLinkModal({ mode: "edit", groupIndex: gi, linkIndex: li }),
+          undefined,
+          "Modifier"
+        );
+        const upB = chipIcon(
+          "up",
+          () => moveLink(gi, li, -1),
+          undefined,
+          "Monter"
+        );
+        const dnB = chipIcon(
+          "down",
+          () => moveLink(gi, li, 1),
+          undefined,
+          "Descendre"
+        );
+        const mvB = chipIcon(
+          "move",
+          () => moveLinkTo(gi, li),
+          undefined,
+          "Déplacer"
+        );
+        const delB = chipIcon(
+          "del",
+          () => delLink(gi, li),
+          "danger",
+          "Supprimer"
+        );
+        [editB, upB, dnB, mvB, delB].forEach((c) => ctr.appendChild(c));
+        a.append(icon, label, url, ctr);
+        a.dataset.label = (link.label || "").toLowerCase();
+        a.dataset.url = (link.url || "").toLowerCase();
+        a.dataset.urlnorm = normalizeUrl(link.url);
+
+        return a;
+      }
+
+      // --- Drag & Drop: liens entre groupes
+      let dragState = null; // {gi, li}
+      function onTileDragStart(e) {
+        if (!editing) {
+          e.preventDefault();
+          return;
+        }
+        const el = e.currentTarget;
+        dragState = { gi: Number(el.dataset.gi), li: Number(el.dataset.li) };
+        if (e.dataTransfer) {
+          e.dataTransfer.setData("text/plain", "tile");
+          e.dataTransfer.effectAllowed = "move";
+        }
+        el.classList.add("dragging");
+      }
+      function onTileDragEnd(e) {
+        const el = e.currentTarget;
+        el.classList.remove("dragging");
+        dragState = null;
+        $$(".tiles").forEach((t) => t.classList.remove("drop-active"));
+      }
+      function setDropHandlers(zone, gi) {
+        zone.addEventListener("dragover", (e) => {
+          if (!editing || !dragState) return;
+          e.preventDefault();
+          zone.classList.add("drop-active");
+        });
+        zone.addEventListener("dragleave", () =>
+          zone.classList.remove("drop-active")
+        );
+        zone.addEventListener("drop", (e) => {
+          if (!editing || !dragState) return;
+          e.preventDefault();
+          zone.classList.remove("drop-active");
+          const srcGi = dragState.gi,
+            srcLi = dragState.li,
+            dstGi = gi;
+          const [x] = data.groups[srcGi].links.splice(srcLi, 1);
+          data.groups[dstGi].links.push(x);
+          saveData();
+          render();
+          $("#edit-toggle").checked = true;
+          editing = true;
+          document.body.classList.add("editing");
+        });
+      }
+
+      // --- Drag & Drop: groupes (réordonnancement)
+      let gDrag = null; // {gi}
+      function onGroupDragStart(e, gi) {
+        if (!editing) {
+          e.preventDefault();
+          return;
+        }
+        gDrag = { gi };
+        const section = e.currentTarget.closest(".group");
+        if (section) section.classList.add("dragging");
+        if (e.dataTransfer) {
+          e.dataTransfer.setData("text/plain", "group");
+          e.dataTransfer.effectAllowed = "move";
+        }
+      }
+      function onGroupDragEnd(e) {
+        const section = e.currentTarget.closest(".group");
+        if (section) section.classList.remove("dragging");
+        gDrag = null;
+        $$(".group").forEach((g) =>
+          g.classList.remove("drop-before", "drop-after")
+        );
+      }
+      function setGroupDragHandlers(section, gi) {
+        section.addEventListener("dragover", (e) => {
+          if (!editing || !gDrag) return;
+          e.preventDefault();
+          const rect = section.getBoundingClientRect();
+          const mid = (rect.top + rect.bottom) / 2;
+          section.classList.toggle("drop-before", e.clientY < mid);
+          section.classList.toggle("drop-after", e.clientY >= mid);
+        });
+
+        section.addEventListener("dragleave", () => {
+          section.classList.remove("drop-before", "drop-after");
+        });
+
+        section.addEventListener("drop", (e) => {
+          if (!editing || !gDrag) return;
+          e.preventDefault();
+          const from = gDrag.gi;
+          const to = gi;
+          const rect = section.getBoundingClientRect();
+          const after = e.clientY >= (rect.top + rect.bottom) / 2;
+          let dest = to + (after ? 1 : 0);
+          if (dest > data.groups.length) dest = data.groups.length;
+
+          const [g] = data.groups.splice(from, 1);
+          if (from < dest) dest--;
+          data.groups.splice(dest, 0, g);
+
+          saveData();
+          render();
+          $("#edit-toggle").checked = true;
+          editing = true;
+          document.body.classList.add("editing");
+        });
+      }
+
+      // --- Groups & links ops
+      function addGroup(name = "Nouveau groupe") {
+        data.groups.push({ name, links: [] });
+        saveData();
+        render();
+      }
+      function moveGroup(i, dir) {
+        const j = i + dir;
+        if (j < 0 || j >= data.groups.length) return;
+        const [g] = data.groups.splice(i, 1);
+        data.groups.splice(j, 0, g);
+        saveData();
+        render();
+      }
+      function delGroup(i) {
+        if (!confirm("Supprimer ce groupe ?")) return;
+        data.groups.splice(i, 1);
+        saveData();
+        render();
+      }
+      function addLink(gi, link) {
+        data.groups[gi].links.push(link);
+        saveData();
+        render();
+      }
+      function updateLink(gi, li, link) {
+        data.groups[gi].links[li] = link;
+        saveData();
+        render();
+      }
+      function moveLink(gi, li, dir) {
+        const links = data.groups[gi].links;
+        const j = li + dir;
+        if (j < 0 || j >= links.length) return;
+        const [x] = links.splice(li, 1);
+        links.splice(j, 0, x);
+        saveData();
+        render();
+      }
+      function moveLinkTo(gi, li) {
+        const dest = prompt(
+          "Déplacer vers quel groupe ? (nom exact)\nGroupes: " +
+            data.groups.map((g) => g.name).join(", ")
+        );
+        if (!dest) return;
+        const j = data.groups.findIndex((g) => g.name === dest);
+        if (j < 0) return alert("Groupe introuvable");
+        const [x] = data.groups[gi].links.splice(li, 1);
+        data.groups[j].links.push(x);
+        saveData();
+        render();
+      }
+      function delLink(gi, li) {
+        if (!confirm("Supprimer ce lien ?")) return;
+        data.groups[gi].links.splice(li, 1);
+        saveData();
+        render();
+      }
+
+      // --- Doublons
+      let dupSet = null;
+
+      function computeDupSet() {
+        const counts = new Map();
+        for (const g of data.groups) {
+          for (const l of g.links) {
+            const u = normalizeUrl(l.url);
+            if (!u) continue;
+            counts.set(u, (counts.get(u) || 0) + 1);
+          }
+        }
+        return new Set([...counts].filter(([u, c]) => c > 1).map(([u]) => u));
+      }
+
+      function applyDuplicateHighlight() {
+        $$(".tile").forEach((t) => {
+          t.classList.toggle("dup", dupSet && dupSet.has(t.dataset.urlnorm));
+        });
+      }
+
+      // --- Modals
+      const linkModal = $("#link-modal");
+      const groupModal = $("#group-modal");
+      let linkCtx = null;
+      let groupCtx = null;
+      function openLinkModal(ctx) {
+        linkCtx = ctx;
+        $("#link-modal-title").textContent =
+          ctx.mode === "edit" ? "Modifier le lien" : "Ajouter un lien";
+        const sel = $("#lm-group");
+        sel.innerHTML = "";
+        data.groups.forEach((g, i) => {
+          const o = document.createElement("option");
+          o.value = i;
+          o.textContent = g.name;
+          sel.appendChild(o);
+        });
+        if (ctx.mode === "edit") {
+          const l = data.groups[ctx.groupIndex].links[ctx.linkIndex];
+          $("#lm-label").value = l.label || "";
+          $("#lm-url").value = l.url || "";
+          sel.value = String(ctx.groupIndex);
+        } else {
+          $("#lm-label").value = "";
+          $("#lm-url").value = "https://";
+          sel.value = String(ctx.groupIndex || 0);
+        }
+        linkModal.showModal();
+      }
+      function closeLinkModal() {
+        linkModal.close();
+        linkCtx = null;
+      }
+      function openGroupModal(ctx) {
+        groupCtx = ctx;
+        $("#group-modal-title").textContent = "Renommer le groupe";
+        $("#gm-name").value = data.groups[ctx.groupIndex].name || "";
+        groupModal.showModal();
+      }
+      function closeGroupModal() {
+        groupModal.close();
+        groupCtx = null;
+      }
+      $("#link-modal-close").addEventListener("click", closeLinkModal);
+      $("#link-modal-cancel").addEventListener("click", closeLinkModal);
+      $("#group-modal-close").addEventListener("click", closeGroupModal);
+      $("#group-modal-cancel").addEventListener("click", closeGroupModal);
+      $("#link-modal-save").addEventListener("click", () => {
+        const label = safeText($("#lm-label").value);
+        const url = safeText($("#lm-url").value);
+        const gi = Number($("#lm-group").value);
+        if (!label || !url) {
+          alert("Nom et URL requis.");
+          return;
+        }
+        const link = { label, url };
+        if (linkCtx && linkCtx.mode === "edit") {
+          updateLink(linkCtx.groupIndex, linkCtx.linkIndex, link);
+        } else {
+          addLink(gi, link);
+        }
+        closeLinkModal();
+      });
+      $("#group-modal-save").addEventListener("click", () => {
+        const name = safeText($("#gm-name").value);
+        if (!name) {
+          alert("Nom requis.");
+          return;
+        }
+        data.groups[groupCtx.groupIndex].name = name;
+        saveData();
+        render();
+        closeGroupModal();
+      });
+
+      // --- Search & filter
+      const searchInput = $("#search-input");
+      const searchForm = $("#search-form");
+      const engineSel = $("#engine");
+      function applyFilter() {
+        const q = searchInput.value.trim().toLowerCase();
+        const groups = $$("#groups .group");
+        groups.forEach((grp) => {
+          const tiles = $$(".tile", grp);
+          let visible = 0;
+          tiles.forEach((t) => {
+            const show =
+              !q || t.dataset.label.includes(q) || t.dataset.url.includes(q);
+            t.style.display = show ? "grid" : "none";
+            if (show) visible++;
+          });
+          grp.style.display = visible > 0 || !q ? "block" : "none";
+        });
+      }
+      searchInput.addEventListener("input", applyFilter);
+      searchForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const raw = searchInput.value.trim();
+        if (!raw) return;
+        let engine = engineSel.value;
+        const m = raw.match(/^!(\w+)\s+(.*)$/);
+        const query = m ? m[2] : raw;
+        if (m) {
+          const ali = ENGINE_ALIASES[m[1]];
+          if (ali) engine = ali;
+        }
+        window.open(ENGINES[engine](query), "_blank", "noopener");
+      });
+
+      // --- Theme & toolbar
+      function loadTheme() {
+        const t = localStorage.getItem("startpage:theme") || "auto";
+        document.documentElement.setAttribute("data-theme", t);
+        $("#theme-select").value = t;
+      }
+      function saveTheme(v) {
+        localStorage.setItem("startpage:theme", v);
+        document.documentElement.setAttribute("data-theme", v);
+      }
+      $("#theme-select").addEventListener("change", (e) =>
+        saveTheme(e.target.value)
+      );
+      $("#edit-toggle").addEventListener("change", (e) => {
+        editing = e.target.checked;
+        document.body.classList.toggle("editing", editing);
+        $$(".tile").forEach((t) => t.classList.toggle("editing", editing));
+      });
+      $("#add-group").addEventListener("click", (e) => {
+        e.preventDefault();
+        addGroup();
+      });
+      $("#export-json").addEventListener("click", (e) => {
+        e.preventDefault();
+        const blob = new Blob([JSON.stringify(data, null, 2)], {
+          type: "application/json",
+        });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "webonomicon.json";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+      $("#import-json").addEventListener("click", (e) => {
+        e.preventDefault();
+        $("#file-json-input").click();
+      });
+      $("#file-json-input").addEventListener("change", async (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        try {
+          const txt = await f.text();
+          const obj = JSON.parse(txt);
+          if (!obj || !obj.groups) {
+            alert("Fichier invalide.");
+            return;
+          }
+          data = obj;
+          saveData();
+          render();
+        } catch (err) {
+          alert("Impossible de lire ce JSON.");
+        }
+        e.target.value = "";
+      });
+
+      // --- Vérifier doublons
+      $("#dedupe").addEventListener("click", (e) => {
+        e.preventDefault();
+        dupSet = computeDupSet();
+        if (dupSet) {
+          dupSet = computeDupSet();
+        }
+        applyDuplicateHighlight();
+        if (dupSet.size > 0) {
+          alert(
+            `Doublons détectés : ${dupSet.size} URL en double.\nIls sont marqués en rouge.`
+          );
+        } else {
+          alert("Aucun doublon trouvé 👍");
+        }
+      });
+
+      // --- Importer Bookmarks HTML (Chrome/Firefox)
+      $("#import-html").addEventListener("click", (e) => {
+        e.preventDefault();
+        $("#file-html-input").click();
+      });
+      $("#file-html-input").addEventListener("change", async (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        try {
+          const txt = await f.text();
+          const imported = parseBookmarksHTML(txt);
+          if (!imported.length) {
+            alert("Aucun favori détecté dans ce fichier.");
+            return;
+          }
+          mergeImportedGroups(imported);
+          const linkCount = imported.reduce((n, g) => n + g.links.length, 0);
+          alert(
+            `Import HTML terminé : ${imported.length} groupe(s), ${linkCount} lien(s).`
+          );
+        } catch (err) {
+          alert("Import HTML impossible : " + err.message);
+        }
+        e.target.value = "";
+      });
+      function parseBookmarksHTML(html) {
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        const body = doc.body;
+        if (!body) throw new Error("Fichier vide.");
+        const groupsMap = new Map(); // name => links
+        function add(groupName, label, url) {
+          if (!url) return;
+          const name = (groupName || "Importés").trim() || "Importés";
+          if (!groupsMap.has(name)) groupsMap.set(name, []);
+          const arr = groupsMap.get(name);
+          if (!arr.some((l) => l.url === url))
+            arr.push({ label: label || url, url });
+        }
+        function collectFolder(dl, name) {
+          // liens directs de ce dossier
+          const dts = Array.from(dl.children).filter(
+            (el) => el.tagName === "DT"
+          );
+          for (const dt of dts) {
+            const first = dt.firstElementChild;
+            if (!first) continue;
+            if (first.tagName === "A") {
+              const aEls = [...dt.querySelectorAll("a")].filter(
+                (a) => a.closest("DT") === dt
+              );
+              for (const a of aEls) {
+                const href =
+                  a.getAttribute("HREF") || a.getAttribute("href") || a.href;
+                add(name, a.textContent.trim(), href);
+              }
+            } else if (first.tagName === "H3") {
+              const subName = first.textContent.trim();
+              let sib = dt.nextElementSibling;
+              while (sib && sib.tagName !== "DL") sib = sib.nextElementSibling;
+              if (sib && sib.tagName === "DL") collectFolder(sib, subName);
+            }
+          }
+        }
+        // parcourir tous les dossiers racine
+        const h3s = Array.from(body.querySelectorAll("h3"));
+        for (const h3 of h3s) {
+          const name = h3.textContent.trim();
+          let dl = h3.parentElement && h3.parentElement.nextElementSibling;
+          while (dl && dl.tagName !== "DL") dl = dl.nextElementSibling;
+          if (dl && dl.tagName === "DL") collectFolder(dl, name);
+        }
+        // fallback: liens isolés sans h3/dl
+        if (groupsMap.size === 0) {
+          const allA = Array.from(doc.querySelectorAll("a[href]"));
+          for (const a of allA) {
+            const href =
+              a.getAttribute("HREF") || a.getAttribute("href") || a.href;
+            add("Importés", a.textContent.trim(), href);
+          }
+        }
+        return Array.from(groupsMap.entries())
+          .map(([name, links]) => ({ name, links }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+      }
+      function mergeImportedGroups(imported) {
+        for (const g of imported) {
+          const i = data.groups.findIndex((x) => x.name === g.name);
+          if (i === -1) {
+            data.groups.push(g);
+          } else {
+            const urls = new Set(data.groups[i].links.map((l) => l.url));
+            for (const l of g.links) {
+              if (!urls.has(l.url)) data.groups[i].links.push(l);
+            }
+          }
+        }
+        saveData();
+        render();
+      }
+
+      // --- Export HTML
+      $("#download-html").addEventListener("click", (e) => {
+        e.preventDefault();
+        try {
+          saveData();
+          const html = "<!doctype html>\n" + document.documentElement.outerHTML;
+          const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "webonomicon.html";
+          a.click();
+          URL.revokeObjectURL(a.href);
+        } catch (err) {
+          alert("Export HTML impossible : " + err.message);
+        }
+      });
+
+      // --- Shortcuts & init
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "/" && document.activeElement !== $("#search-input")) {
+          e.preventDefault();
+          $("#search-input").focus();
+        }
+        if (e.key === "e" && !e.metaKey && !e.ctrlKey) {
+          const box = $("#edit-toggle");
+          box.checked = !box.checked;
+          box.dispatchEvent(new Event("change"));
+        }
+      });
+      (function init() {
+        const t = localStorage.getItem("startpage:theme") || "auto";
+        document.documentElement.setAttribute("data-theme", t);
+        $("#theme-select").value = t;
+        if (!data.title || /favoris/i.test(data.title)) {
+          data.title = "💀 Webonomicon";
+          saveData();
+        }
+        render();
+      })();
+    </script>
+  </body>
+</html>
