@@ -5,30 +5,30 @@ Pas de serveur, pas de dépendance externe : tout est embarqué (favoris, moteur
 
 ---
 
-## ✨ Fonctionnalités
+## Fonctionnalités
 
-- 🎨 **Thèmes clair/sombre/auto** + persistance
-- 🔍 **Barre de recherche intégrée** (Google, DuckDuckGo, Qwant, Bing, Brave, Startpage)
+- **Thèmes clair/sombre/auto** + persistance
+- **Barre de recherche intégrée** (Google, DuckDuckGo, Qwant, Bing, Brave, Startpage)
   - Alias rapides (`!ddg`, `!q`, `!b`, etc.)
-- 📂 **Groupes de favoris** (création, suppression, renommage, déplacement)
-- 🔗 **Liens favoris** :
+- **Groupes de favoris** (création, suppression, renommage, déplacement)
+- **Liens favoris** :
   - ajout / édition via modale
   - réorganisation par **drag & drop**
-- 📥 **Import / Export** :
+- **Import / Export** :
   - JSON (sauvegarde/restauration)
   - HTML de favoris **Chrome / Firefox**
   - Fichier HTML standalone (auto-contenu)
-- 🖱️ **Drag & drop complet** :
+- **Drag & drop complet** :
   - liens entre groupes
   - groupes réordonnables
   - groupes vides acceptent le drop
-- 🛡️ **Vérification des doublons** :
+- **Vérification des doublons** :
   - détection automatique
   - liens dupliqués mis en évidence (bordure rouge)
 
 ---
 
-## 🚀 Installation & Usage
+## Installation & Usage
 
 1. Télécharge `webonomicon.html`
 2. Ouvre-le directement dans ton navigateur
@@ -39,14 +39,14 @@ Pas de serveur, pas de dépendance externe : tout est embarqué (favoris, moteur
 
 ---
 
-## ⌨️ Raccourcis clavier
+## Raccourcis clavier
 
 - `/` → focus sur la recherche
 - `e` → bascule mode édition
 
 ---
 
-## 📦 Import / Export
+## Import / Export
 
 - **Exporter JSON** : sauvegarde les favoris dans un fichier `.json`
 - **Importer JSON** : recharge un fichier `.json`
@@ -55,7 +55,7 @@ Pas de serveur, pas de dépendance externe : tout est embarqué (favoris, moteur
 
 ---
 
-## 🛠️ Technologies
+## Technologies
 
 - HTML5 + CSS3 (custom design responsive)
 - JavaScript Vanilla (aucune dépendance)
@@ -63,7 +63,7 @@ Pas de serveur, pas de dépendance externe : tout est embarqué (favoris, moteur
 
 ---
 
-## 🧑‍💻 Développement
+## Développement
 
 Clone ce repo et édite simplement le fichier `webonomicon.html` :
 
