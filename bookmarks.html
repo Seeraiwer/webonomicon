@@ -1165,17 +1165,12 @@
       $("#dedupe").addEventListener("click", (e) => {
         e.preventDefault();
         dupSet = computeDupSet();
-        if (dupSet) {
-          dupSet = computeDupSet();
-        }
         applyDuplicateHighlight();
-        if (dupSet.size > 0) {
-          alert(
-            `Doublons détectés : ${dupSet.size} URL en double.\nIls sont marqués en rouge.`
-          );
-        } else {
-          alert("Aucun doublon trouvé 👍");
-        }
+        alert(
+          dupSet.size > 0
+            ? `Doublons détectés : ${dupSet.size} URL en double.\nIls sont marqués en rouge.`
+            : "Aucun doublon trouvé 👍"
+        );
       });
 
       // --- Importer Bookmarks HTML (Chrome/Firefox)
@@ -1205,63 +1200,81 @@
       });
       function parseBookmarksHTML(html) {
         const doc = new DOMParser().parseFromString(html, "text/html");
-        const rootDL = doc.querySelector("dl, DL");
+        // On veut le DL racine du fichier exporté
+        const rootDL = doc.querySelector("DL, dl");
         if (!rootDL) throw new Error("Format Netscape/Bookmarks non détecté.");
 
-        // Retire les espaces/retours parasites dans un nom de dossier
-        const clean = (s) => (s || "").replace(/\s+/g, " ").trim();
+        // Regroupe les liens par dossier (chemin “A / B / C”)
+        const groupsMap = new Map(); // name => [{label,url}]
 
-        // Reconstitue le chemin "A / B / C" d'un lien <a> donné
-        function folderPathFor(anchor) {
-          const path = [];
-          let dl = anchor.closest("dl, DL");
-          while (dl) {
-            // Le dossier "propriétaire" d'un <DL> est le <DT> immédiatement précédent
-            // qui contient un <H3> (le nom du dossier)
-            let prev = dl.previousElementSibling;
-            while (prev && prev.tagName !== "DT")
-              prev = prev.previousElementSibling;
-            if (prev) {
-              const h = prev.querySelector(
-                ":scope > h3, :scope > H3, :scope > h1, :scope > H1"
-              );
-              if (h) path.unshift(clean(h.textContent));
-            }
-            // Remonte d'un niveau: le parent d'un <DL> est (en général) un autre <DL>
-            dl = dl.parentElement ? dl.parentElement.closest("dl, DL") : null;
-          }
-          return path;
-        }
-
-        // Rassemble les liens par groupe (chemin "A / B / C")
-        const groupsMap = new Map(); // name -> [{label,url}]
         const add = (pathArr, label, url) => {
           if (!url) return;
           const name = pathArr.length ? pathArr.join(" / ") : "Racine";
           if (!groupsMap.has(name)) groupsMap.set(name, []);
           const arr = groupsMap.get(name);
-          const nu = normalizeUrl(url);
+          const nu = normalizeUrl(url); // ta fonction existe déjà
           if (!arr.some((l) => normalizeUrl(l.url) === nu)) {
-            arr.push({ label: clean(label) || url, url });
+            arr.push({ label: (label || url).trim(), url });
           }
         };
 
-        // 1) Tous les liens sous le DL racine (peu importe la profondeur)
-        const anchors = rootDL.querySelectorAll("a[href], A[HREF]");
-        anchors.forEach((a) => {
-          const href =
-            a.getAttribute("href") || a.getAttribute("HREF") || a.href;
-          const label = a.textContent || href;
-          const path = folderPathFor(a);
-          add(path, label, href);
-        });
+        // Parcours récursif du format NETSCAPE
+        function traverseDL(dl, path) {
+          const dts = Array.from(dl.children).filter(
+            (el) => el.tagName === "DT"
+          );
+          for (const dt of dts) {
+            const first = dt.firstElementChild;
+            if (!first) continue;
 
-        // 2) Conversion en tableau de groupes, dans l'ordre d'apparition
-        const groups = Array.from(groupsMap, ([name, links]) => ({
-          name,
-          links,
-        }));
-        return groups;
+            if (first.tagName === "H3" || first.tagName === "H1") {
+              // Nom du dossier
+              const folder = first.textContent.trim();
+
+              // 1) Cas Firefox/Chrome (DL enfant direct du même DT)
+              let nested = dt.querySelector(":scope > DL, :scope > dl");
+
+              // 2) Fallback: DL frère suivant du DT
+              if (!nested) {
+                let sib = dt.nextElementSibling;
+                while (sib && sib.tagName !== "DL")
+                  sib = sib.nextElementSibling;
+                nested = sib || null;
+              }
+
+              if (nested) traverseDL(nested, [...path, folder]);
+              continue;
+            }
+
+            if (first.tagName === "A") {
+              // Lien(s) directement sous ce DT
+              // (certains exports mettent 1 seul <A>, d’autres plusieurs)
+              const aEls = dt.querySelectorAll(
+                ":scope > A[href], :scope > a[href]"
+              );
+              for (const a of aEls) {
+                const href =
+                  a.getAttribute("HREF") || a.getAttribute("href") || a.href;
+                add(path, a.textContent, href);
+              }
+            }
+          }
+
+          // Sécurité: si des <A> trainent directement sous <DL> (sans <DT>)
+          const directAs = dl.querySelectorAll(
+            ":scope > A[href], :scope > a[href]"
+          );
+          for (const a of directAs) {
+            const href =
+              a.getAttribute("HREF") || a.getAttribute("href") || a.href;
+            add(path, a.textContent, href);
+          }
+        }
+
+        traverseDL(rootDL, []);
+
+        // Map -> tableau de groupes
+        return Array.from(groupsMap, ([name, links]) => ({ name, links }));
       }
 
       function mergeImportedGroups(imported) {
